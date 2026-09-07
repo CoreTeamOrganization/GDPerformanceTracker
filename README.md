@@ -5,10 +5,12 @@
 **Window → Package Manager → `+` → Add package from git URL…** and paste:
 
 ```
-https://github.com/CoreTeamOrganization/GDPerformanceTracker.git#v1.0.0
+https://github.com/CoreTeamOrganization/GDPerformanceTracker.git
 ```
 
-Drop `#v1.0.0` to track the latest `main` instead of a pinned release.
+This tracks the latest release on `main`. When a new version is published, Package
+Manager shows the new version number on the package — click **Update** to pull it.
+To lock a project to one release instead, append the tag: `…tracker.git#v1.0.1`.
 Minimum Unity version: **2022.3**. No other dependencies.
 
 Then run **Tools → GD Performance Tracker → Performance Tracker Wizard** to place
