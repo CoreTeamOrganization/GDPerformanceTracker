@@ -46,7 +46,7 @@ developer a `Dictionary<string, object>` and the developer's analytics code send
 | `Prefabs/GDPerfTracker.prefab` | Drag-and-drop setup. Inspector holds the **initial values** (all tracking OFF, interval 1s). |
 | `Editor/PerformanceTrackerWizard.cs` | Setup wizard — `Tools → GD Performance Tracker → Performance Tracker Wizard`. Editor-only. |
 | `Editor/Brand/` | Wizard design tokens (Game District cream / navy / gold) and the bundled Fraunces + Inter fonts. Editor-only. |
-| `Documentation/GDPerformanceTracker-Guide.pdf` | Full integration guide (payload field reference, Metica examples, caveats). |
+| `Documentation/GDPerformanceTracker-Guide.pdf` | Full integration guide (install, payload field reference, Metica examples, caveats). Regenerated on every release from `Tools~/guide/`. |
 
 ---
 
@@ -136,7 +136,9 @@ the portfolio: **`perfStats`** and **`loadingTime`** (via
 
 9. **Setup wizard.** Two pages: (1) pick a scene (only scenes enabled in Build
    Settings are offered, in build order) → wizard instantiates the
-   prefab (skips if one already exists) and saves the scene; (2) the three
+   prefab (skips if one already exists), saves the scene, selects the new object,
+   and draws the component as it appears in the Inspector with its live values plus
+   the remote-config reminder; (2) the three
    integration snippets (Configure / perfStats / loadingTime) with Copy buttons,
    monospace code styling, and an Open-Guide-PDF button. Lives in `Editor/`,
    never ships in builds.
@@ -145,9 +147,13 @@ the portfolio: **`perfStats`** and **`loadingTime`** (via
 
 ## Integration flow (what a game team does)
 
-1. Import the package.
+1. Install via the Package Manager git URL at the top of this page. Make sure the
+   boot scene is enabled in **File → Build Settings** — the wizard lists only
+   scenes that ship.
 2. Run **Tools → GD Performance Tracker → Performance Tracker Wizard** → Step 1
-   puts the prefab in the boot scene.
+   puts the prefab in the boot scene and selects it. The page shows the component
+   as it appears in the Inspector with its live values (all OFF by default) — that
+   is a reminder, not the switch; remote config via `Configure()` is the switch.
 3. Wire the three calls from Step 2 (or the PDF): Configure after remote config;
    `ConsumePerfPayload` + base fields + `LogCustomEvent("perfStats", …)` at the
    logging moment; `MarkGameInteractive` at the playable moment +
