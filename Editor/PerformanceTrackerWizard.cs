@@ -264,6 +264,8 @@ if (payload != null)
             GUILayout.Space(6);
             _sceneIndex = EditorGUILayout.Popup(
                 Mathf.Clamp(_sceneIndex, 0, _scenePaths.Length - 1), _sceneNames, _popup, GUILayout.Width(560));
+            GUILayout.Space(4);
+            GUILayout.Label(_scenePaths[_sceneIndex], _muted);
 
             GUILayout.Space(14);
             using (new GUILayout.HorizontalScope())
@@ -436,7 +438,8 @@ if (payload != null)
         {
             if (!s.enabled || string.IsNullOrEmpty(s.path)) continue;
             paths.Add(s.path);
-            names.Add(paths.Count - 1 + "  ·  " + Path.GetFileNameWithoutExtension(s.path) + "  —  " + s.path);
+            // No "/" in popup items: Unity turns slashes into nested submenus. Path is shown below instead.
+            names.Add(paths.Count - 1 + "  ·  " + Path.GetFileNameWithoutExtension(s.path));
         }
         _scenePaths = paths.ToArray();
         _sceneNames = names.ToArray();
