@@ -68,9 +68,13 @@ GDPerformance.MarkGameInteractive();
 Dictionary<string, object> startup = GDPerformance.GetStartupPayload();
 ```
 
-The developer must append the pipeline's required base fields (`adid` / `appToken`
-from `AdjustAnalyticsNetwork`) before sending, and null-strip values before Metica
-(the SDK silently drops events containing nulls on iOS). Event names used across
+Logging pattern for both events, same as every event in the pipeline: get the
+payload from the utility, add the five required base fields one by one (`adid`,
+`appToken` from `AdjustAnalyticsNetwork`; `abTest`, `abGroup`, `abTestStartDate`
+from the game's `GDMeticaAnalytics`), add the game's own context fields (for
+example `taskId`, `taskName`, `subTaskId`, `subTaskName`, `day`), then send.
+Null-strip values before Metica (the SDK silently drops events containing nulls
+on iOS). Event names used across
 the portfolio: **`perfStats`** and **`loadingTime`** (via
 `MeticaSdk.Analytics.LogCustomEvent` — it rejects Metica core event names).
 

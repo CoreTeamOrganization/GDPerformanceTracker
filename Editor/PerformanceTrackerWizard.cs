@@ -55,26 +55,51 @@ bool  startupOn  = MonetizationServices.Remote.GetRemoteValue<bool>(""startup_tr
 GDPerformance.Configure(perfOn, interval, startupOn);";
 
     const string SnippetLogPerf =
-@"Dictionary<string, object> perf = GDPerformance.ConsumePerfPayload();
-if (perf != null)
-{
-    perf[""adid""]     = AdjustAnalyticsNetwork.AdId;
-    perf[""appToken""] = AdjustAnalyticsNetwork.AppToken;
+@"// 1) Get the payload from the utility first (null = tracking off / nothing recorded — skip):
+Dictionary<string, object> payload = GDPerformance.ConsumePerfPayload();
+if (payload == null) return;
 
-    MeticaSdk.Analytics.LogCustomEvent(""perfStats"", perf);
-}";
+// 2) Base fields — REQUIRED on every event in the pipeline, added one by one:
+payload[""adid""]            = AdjustAnalyticsNetwork.AdId;
+payload[""appToken""]        = AdjustAnalyticsNetwork.AppToken;
+payload[""abTest""]          = analytics.AbTest;           // your GDMeticaAnalytics instance
+payload[""abGroup""]         = analytics.AbGroup;
+payload[""abTestStartDate""] = analytics.AbTestStartDate;
+
+// 3) Game context — whatever THIS game tracks on its events, e.g.:
+payload[""taskId""]      = taskId;
+payload[""taskName""]    = taskName;
+payload[""subTaskId""]   = subTaskId;
+payload[""subTaskName""] = subTaskName;
+payload[""day""]         = day;
+
+// 4) Send (null-strip first: Metica drops the whole event on iOS if any value is null)
+MeticaSdk.Analytics.LogCustomEvent(""perfStats"", payload);";
 
     const string SnippetStartup =
-@"GDPerformance.MarkGameInteractive();
+@"// Once, the moment THIS game is genuinely playable (menu ready / first input enabled):
+GDPerformance.MarkGameInteractive();
 
+// 1) Get the payload from the utility first (null = startup tracking off — skip):
 Dictionary<string, object> payload = GDPerformance.GetStartupPayload();
-if (payload != null)
-{
-    payload[""adjustAdid""]     = adjustAdid;
-    payload[""adjustAppToken""] = adjustAppToken;
+if (payload == null) return;
 
-    MeticaSdk.Analytics.LogCustomEvent(""loadingTime"", payload);
-}";
+// 2) Base fields — REQUIRED on every event in the pipeline, added one by one:
+payload[""adid""]            = AdjustAnalyticsNetwork.AdId;
+payload[""appToken""]        = AdjustAnalyticsNetwork.AppToken;
+payload[""abTest""]          = analytics.AbTest;           // your GDMeticaAnalytics instance
+payload[""abGroup""]         = analytics.AbGroup;
+payload[""abTestStartDate""] = analytics.AbTestStartDate;
+
+// 3) Game context — whatever THIS game tracks on its events, e.g.:
+payload[""taskId""]      = taskId;
+payload[""taskName""]    = taskName;
+payload[""subTaskId""]   = subTaskId;
+payload[""subTaskName""] = subTaskName;
+payload[""day""]         = day;
+
+// 4) Send (null-strip first: adid can still be null this early; Metica drops the event on iOS)
+MeticaSdk.Analytics.LogCustomEvent(""loadingTime"", payload);";
 
     [MenuItem("Tools/GD Performance Tracker/Performance Tracker Wizard")]
     static void Open()
@@ -445,14 +470,16 @@ if (payload != null)
             SnippetConfigure);
 
         DrawSnippet(2, "Log the FPS / memory event — \"perfStats\"",
-            "At your chosen logging moment (level end, session end). ConsumePerfPayload() returns everything " +
-            "since the last call, then resets. Null = nothing recorded, skip.",
+            "At your chosen logging moment (level end, session end). Pattern for every event: get the payload " +
+            "from the utility, add the five required base fields (adid, appToken, abTest, abGroup, " +
+            "abTestStartDate), then this game's own context fields, then send. Null = nothing recorded, skip.",
             SnippetLogPerf);
 
         DrawSnippet(3, "Capture + log startup time — \"loadingTime\"",
             "MarkGameInteractive() fires where THIS game becomes genuinely playable. Unity-control time is " +
-            "captured automatically — no prefab needed. GetStartupPayload() returns null when startup tracking " +
-            "is disabled — skip logging. Null-strip values before Metica (iOS drops events containing nulls).",
+            "captured automatically — no prefab needed. Same pattern: payload from the utility, the five required " +
+            "base fields, game context, send. GetStartupPayload() returns null when startup tracking is disabled " +
+            "— skip logging. Null-strip before Metica (iOS drops events containing nulls).",
             SnippetStartup);
 
         GUILayout.Space(8);
