@@ -134,7 +134,8 @@ the portfolio: **`perfStats`** and **`loadingTime`** (via
    are NOT comparable to real Android numbers. No iOS branch yet.
    `GDPerfTracker` is fully cross-platform.
 
-9. **Setup wizard.** Two pages: (1) pick a scene → wizard instantiates the
+9. **Setup wizard.** Two pages: (1) pick a scene (only scenes enabled in Build
+   Settings are offered, in build order) → wizard instantiates the
    prefab (skips if one already exists) and saves the scene; (2) the three
    integration snippets (Configure / perfStats / loadingTime) with Copy buttons,
    monospace code styling, and an Open-Guide-PDF button. Lives in `Editor/`,

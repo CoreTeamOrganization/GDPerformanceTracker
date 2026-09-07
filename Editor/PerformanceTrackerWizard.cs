@@ -9,7 +9,8 @@ using UnityEngine;
 /// Setup wizard for GD Performance Tracker.
 /// Menu: Tools > GD Performance Tracker > Performance Tracker Wizard
 ///
-/// Step 1 — pick a scene; the wizard adds the GDPerfTracker prefab to it
+/// Step 1 — pick a scene (enabled Build Settings scenes only, in build order); the
+///          wizard adds the GDPerfTracker prefab to it
 ///          (skips if the scene already has one), saves the scene, and shows the
 ///          prefab's shipped defaults with a reminder to override them via
 ///          GDPerformance.Configure() from remote config.
@@ -242,21 +243,24 @@ if (payload != null)
     void DrawScenePage()
     {
         Header("Step 1 of 2", "Add the tracker to a scene",
-            "Pick the scene where the tracker should live — normally your first scene (boot or splash). " +
+            "Pick the scene where the tracker should live — normally scene 0 (boot or splash). " +
+            "Only scenes enabled in Build Settings are listed, in build order. " +
             "The prefab survives scene loads, so one scene covers the whole game.");
 
         _scroll = EditorGUILayout.BeginScrollView(_scroll, GUILayout.ExpandHeight(true));
 
         if (_scenePaths.Length == 0)
         {
-            Callout(Tone.Warn, "No scenes found under Assets/", "Create or import a scene, then refresh the list.");
+            Callout(Tone.Warn, "No scenes in Build Settings",
+                "Only scenes enabled in File > Build Settings are listed, because only those ship. " +
+                "Add your boot scene there, then refresh the list.");
             GUILayout.Space(12);
             if (GUILayout.Button("Refresh scene list", _btnGhost, GUILayout.Width(160), GUILayout.Height(32)))
                 RefreshSceneList();
         }
         else
         {
-            Eyebrow("Target scene");
+            Eyebrow("Target scene  ·  from Build Settings");
             GUILayout.Space(6);
             _sceneIndex = EditorGUILayout.Popup(
                 Mathf.Clamp(_sceneIndex, 0, _scenePaths.Length - 1), _sceneNames, _popup, GUILayout.Width(560));
@@ -424,18 +428,21 @@ if (payload != null)
 
     void RefreshSceneList()
     {
+        // Only scenes that ship: enabled entries in File > Build Settings, in build order.
+        // Index 0 is the boot scene, which is where the tracker normally belongs.
         var paths = new List<string>();
-        foreach (string guid in AssetDatabase.FindAssets("t:Scene"))
+        var names = new List<string>();
+        foreach (EditorBuildSettingsScene s in EditorBuildSettings.scenes)
         {
-            string p = AssetDatabase.GUIDToAssetPath(guid);
-            if (p.StartsWith("Assets/")) paths.Add(p);   // games' scenes only, skip Packages/
+            if (!s.enabled || string.IsNullOrEmpty(s.path)) continue;
+            paths.Add(s.path);
+            names.Add(paths.Count - 1 + "  ·  " + Path.GetFileNameWithoutExtension(s.path) + "  —  " + s.path);
         }
-        paths.Sort();
         _scenePaths = paths.ToArray();
-        _sceneNames = new string[paths.Count];
-        for (int i = 0; i < paths.Count; i++)
-            _sceneNames[i] = Path.GetFileNameWithoutExtension(paths[i]) + "  —  " + paths[i];
+        _sceneNames = names.ToArray();
 
+        // Default to the boot scene; prefer the currently open scene if it is in the build.
+        _sceneIndex = 0;
         string active = EditorSceneManager.GetActiveScene().path;
         for (int i = 0; i < _scenePaths.Length; i++)
             if (_scenePaths[i] == active) { _sceneIndex = i; break; }
