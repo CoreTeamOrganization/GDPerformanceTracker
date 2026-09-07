@@ -1,5 +1,23 @@
 # GD Performance Tracker
 
+## Install (Unity Package Manager)
+
+**Window → Package Manager → `+` → Add package from git URL…** and paste:
+
+```
+https://github.com/CoreTeamOrganization/GDPerformanceTracker.git#v1.0.0
+```
+
+Drop `#v1.0.0` to track the latest `main` instead of a pinned release.
+Minimum Unity version: **2022.3**. No other dependencies.
+
+Then run **Tools → GD Performance Tracker → Performance Tracker Wizard** to place
+the prefab in your boot scene and copy the integration snippets.
+
+---
+
+## What it is
+
 RAM-only performance instrumentation for Unity mobile games (portfolio-wide).
 Two utilities behind one 4-method API:
 
@@ -19,6 +37,7 @@ developer a `Dictionary<string, object>` and the developer's analytics code send
 
 | Path | Purpose |
 |---|---|
+| `package.json` | UPM manifest (`com.gamedistrict.performance-tracker`). |
 | `Scripts/GDPerformance.cs` | **The only class developers call** — 4-method static facade. Everything else is `internal`. |
 | `Scripts/GDPerfTracker.cs` | FPS/memory recorder implementation (MonoBehaviour, lives on the prefab). Never called directly. |
 | `Scripts/GDStartupTime.cs` | Cold-start stopwatch implementation (static). Never called directly. Needs no prefab. |
@@ -131,55 +150,3 @@ the portfolio: **`perfStats`** and **`loadingTime`** (via
    `GetStartupPayload` + `LogCustomEvent("loadingTime", …)`.
 4. Add the three remote config keys: `perf_tracking_enabled` (bool),
    `perf_sample_interval` (float), `startup_tracking_enabled` (bool).
-
----
-
-## UPM conversion checklist (for the standalone package repo)
-
-- [ ] Repo layout: `package.json` at root; move `Scripts/` → `Runtime/`,
-      keep `Editor/`, `Documentation~/` (trailing `~` hides it from the asset
-      database — or keep `Documentation/` visible if the PDF should import).
-      Prefab can live in `Runtime/Prefabs/` or ship via `Samples~`.
-- [ ] `package.json`: name like `com.gamedistrict.performance-tools`, version,
-      `"unity": "2022.3"` as minimum.
-- [ ] **Add asmdefs — required for UPM:** `GDPerformanceTracker.Runtime.asmdef`
-      (Runtime folder) and `GDPerformanceTracker.Editor.asmdef` (Editor folder,
-      "Editor" platform only, referencing the runtime asmdef).
-      The `internal` accessibility keeps working: facade + implementations share
-      the runtime assembly; the wizard only uses the public `GDPerfTracker` type.
-      With asmdefs, `internal` now also hides implementation from the game's
-      Assembly-CSharp — which is exactly the intent.
-- [ ] The wizard's `AssetDatabase.FindAssets` prefab lookup works for packages
-      (searches `Packages/` too) — but the scene list filter keeps only
-      `Assets/` scenes on purpose (games' scenes, not package scenes). Verify
-      the prefab search filter still resolves when the prefab lives under
-      `Packages/`.
-- [ ] Snippets/doc reference portfolio services (`MonetizationServices.Remote`,
-      `AdjustAnalyticsNetwork`, `MeticaSdk`) — these are NOT package
-      dependencies; they're the games' stack, shown as example code only. Keep
-      it that way (no hard references from Runtime code — currently true).
-- [ ] Version the PDF alongside the package; regenerate on API changes.
-- [ ] Distribute via git URL (`https://…/repo.git#v1.0.0`) or a scoped registry;
-      retire the `.unitypackage` once UPM is live.
-
----
-
-## Session history (how this package came to be)
-
-Built during the Prison Riot Guard Simulator performance audit (Sept 2026):
-
-1. `GDPerfTracker` started as a user-supplied FPS bucket counter; extended with:
-   three-counter memory sampling, FPS percentiles, capped RAM buffers,
-   consume-window model, remote-config kill switch + sample interval,
-   disabled-by-default, scene-load frame skipping, release-build counter fallback.
-2. `GDStartupTime` supplied as an existing portfolio utility (integration brief +
-   source); cleaned encoding, made internal, added the output-gating kill switch.
-3. `GDPerformance` facade added to reduce the developer surface to 4 methods.
-4. Prefab authored with safe defaults; Inspector initial values + remote override.
-5. Setup wizard (2-page EditorWindow, scene picker + copyable snippets).
-6. Guide PDF authored (plain-language field reference; percentile and memory
-   semantics; Firebase→Configure→Metica examples; kill-switch timing explanation).
-7. `.unitypackage` distribution: hand-built tar initially caused a Windows/Unity
-   import hang → rebuilt as strict USTAR; **Unity's own Export Package (with
-   "Include dependencies" unchecked) is the recommended way to produce the
-   distributable** until UPM replaces it.

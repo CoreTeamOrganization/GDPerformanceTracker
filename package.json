@@ -1,0 +1,10 @@
+{
+  "name": "com.gamedistrict.performance-tracker",
+  "version": "1.0.0",
+  "displayName": "GD Performance Tracker",
+  "description": "RAM-only FPS/memory and cold-start instrumentation for Unity mobile games. Records into RAM and hands the game one payload to log via its own analytics (perfStats / loadingTime).",
+  "unity": "2022.3",
+  "keywords": ["performance", "fps", "memory", "startup", "analytics"],
+  "author": { "name": "Game District" },
+  "repository": { "type": "git", "url": "https://github.com/CoreTeamOrganization/GDPerformanceTracker.git" }
+}
