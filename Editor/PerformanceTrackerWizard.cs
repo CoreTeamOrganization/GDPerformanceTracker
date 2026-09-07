@@ -10,10 +10,10 @@ using UnityEngine;
 /// Menu: Tools > GD Performance Tracker > Performance Tracker Wizard
 ///
 /// Step 1 — pick a scene (enabled Build Settings scenes only, in build order); the
-///          wizard adds the GDPerfTracker prefab to it
-///          (skips if the scene already has one), saves the scene, and shows the
-///          prefab's shipped defaults with a reminder to override them via
-///          GDPerformance.Configure() from remote config.
+///          wizard adds the GDPerfTracker prefab to it (skips if the scene already
+///          has one), saves the scene and selects it. The page shows a live picture
+///          of the component as it appears in the Inspector, with the reminder that
+///          GDPerformance.Configure() from remote config overrides those values.
 /// Step 2 — shows the three integration calls the developer wires up manually,
 ///          each with a Copy button.
 ///
@@ -44,7 +44,8 @@ public class PerformanceTrackerWizard : EditorWindow
     bool _stylesBuilt;
     GUIStyle _h2, _h3, _lede, _body, _muted, _eyebrow, _footnote, _statValue, _statValueOff,
              _calloutTitle, _code, _popup, _btnPrimary, _btnSecondary, _btnGhost,
-             _calloutGold, _calloutOk, _calloutWarn;
+             _calloutGold, _calloutOk, _calloutWarn,
+             _inspLabel, _inspBold, _inspMutedStyle, _inspIcon, _inspCheck;
 
     const string SnippetConfigure =
 @"bool  perfOn    = MonetizationServices.Remote.GetRemoteValue<bool>(""perf_tracking_enabled"");
@@ -131,6 +132,12 @@ if (payload != null)
 
         _popup = new GUIStyle(EditorStyles.popup) { fontSize = BrandTokens.SizeUI, fixedHeight = 26 };
         if (ui != null) _popup.font = ui;
+
+        _inspLabel      = BrandTokens.MakeStyle(ui, 12, InspText,  FontStyle.Normal, TextAnchor.MiddleLeft);
+        _inspBold       = BrandTokens.MakeStyle(ui, 12, InspText,  FontStyle.Bold,   TextAnchor.MiddleLeft);
+        _inspMutedStyle = BrandTokens.MakeStyle(ui, 12, InspMuted, FontStyle.Normal, TextAnchor.MiddleLeft);
+        _inspIcon       = BrandTokens.MakeStyle(ui, 10, Color.white, FontStyle.Bold, TextAnchor.MiddleCenter);
+        _inspCheck      = BrandTokens.MakeStyle(ui, 12, InspText,  FontStyle.Bold,   TextAnchor.MiddleCenter);
 
         _calloutGold = MakeCallout(BrandTokens.Gold);
         _calloutOk   = MakeCallout(BrandTokens.Shipped);
@@ -304,44 +311,119 @@ if (payload != null)
     }
 
     /// <summary>
-    /// The prefab ships with everything OFF. Show the real Inspector values and make it
-    /// unmistakable that remote config (Configure) is the switch, not the Inspector.
+    /// The prefab ships with everything OFF. Show the component exactly as the developer will
+    /// see it in the Inspector (live values), and say plainly that remote config is the switch.
     /// </summary>
     void DrawDefaultsPanel()
     {
         using (new GUILayout.VerticalScope(_calloutGold))
         {
-            GUILayout.Label("Prefab defaults — override them from remote config", _calloutTitle);
+            GUILayout.Label("This is the prefab in the Inspector — its values are only the starting point", _calloutTitle);
             if (_defaultsKnown)
-                GUILayout.Label("Values read from the " + _defSource + ".", _muted);
+                GUILayout.Label("Values read live from the " + _defSource + ".", _muted);
             GUILayout.Space(10);
 
             using (new GUILayout.HorizontalScope())
             {
-                Stat("FPS / memory tracking", OnOff(_defTracking), !_defTracking);
-                Stat("Sample interval",       _defInterval.ToString("0.#") + " s", false);
-                Stat("Startup-time reporting", OnOff(_defStartup), !_defStartup);
+                DrawInspectorMock(430f);
+                GUILayout.Space(20);
+                using (new GUILayout.VerticalScope())
+                {
+                    GUILayout.Label(
+                        "Right now: FPS / memory tracking " + OnOff(_defTracking) +
+                        ", sample interval " + _defInterval.ToString("0.#") + " s, startup-time reporting " +
+                        OnOff(_defStartup) + ". While tracking is OFF nothing records and no perfStats or " +
+                        "loadingTime event is ever logged.",
+                        _body);
+                    GUILayout.Space(8);
+                    GUILayout.Label(
+                        "Do not treat these Inspector fields as the switch. Call GDPerformance.Configure() " +
+                        "once remote config is fetched so perf_tracking_enabled, perf_sample_interval and " +
+                        "startup_tracking_enabled control both kill switches at runtime. The Configure() " +
+                        "snippet is in Step 2.",
+                        _body);
+                }
             }
-
-            GUILayout.Space(12);
-            GUILayout.Label(
-                "These are only the INITIAL values. While tracking is OFF nothing records and no perfStats or " +
-                "loadingTime event is ever logged. Do not treat the Inspector as the switch: call " +
-                "GDPerformance.Configure() once remote config is fetched so the keys perf_tracking_enabled, " +
-                "perf_sample_interval and startup_tracking_enabled control both kill switches at runtime. " +
-                "The Configure() snippet is in Step 2.",
-                _body);
         }
         AccentBar(BrandTokens.Gold);
     }
 
-    void Stat(string label, string value, bool attention)
+    // Unity dark-skin Inspector colours, so the mock reads as "the Inspector" in either editor skin.
+    static readonly Color InspBg     = new Color32(56,  56,  56,  255);
+    static readonly Color InspHeader = new Color32(64,  64,  64,  255);
+    static readonly Color InspText   = new Color32(210, 210, 210, 255);
+    static readonly Color InspMuted  = new Color32(150, 150, 150, 255);
+    static readonly Color InspField  = new Color32(42,  42,  42,  255);
+    static readonly Color InspBorder = new Color32(28,  28,  28,  255);
+    static readonly Color InspKnob   = new Color32(190, 190, 190, 255);
+    static readonly Color InspScript = new Color32(90,  158, 90,  255);
+
+    /// <summary>Draws a read-only picture of the GDPerfTracker component as it appears in the Inspector.</summary>
+    void DrawInspectorMock(float width)
     {
-        using (new GUILayout.VerticalScope(GUILayout.Width(220)))
-        {
-            GUILayout.Label(value, attention ? _statValueOff : _statValue);
-            GUILayout.Label(label, _muted);
-        }
+        const float pad = 10f, headerH = 26f, rowH = 22f, labelW = 210f;
+        float height = pad + headerH + 6f + rowH * 5f + pad;
+        Rect r = GUILayoutUtility.GetRect(width, height, GUILayout.Width(width), GUILayout.Height(height));
+        if (Event.current.type != EventType.Repaint) return;
+
+        BrandTokens.Fill(r, InspBg);
+        BrandTokens.Outline(r, InspBorder);
+
+        // Component header: foldout arrow, script icon, enabled checkbox, title.
+        var header = new Rect(r.x, r.y + pad, r.width, headerH);
+        BrandTokens.Fill(header, InspHeader);
+        GUI.Label(new Rect(header.x + 8, header.y, 14, headerH), "▾", _inspBold);
+        var icon = new Rect(header.x + 26, header.y + 6, 14, 14);
+        BrandTokens.Fill(icon, InspScript);
+        GUI.Label(icon, "#", _inspIcon);
+        MockToggle(new Rect(header.x + 48, header.y + 6, 14, 14), true);
+        GUI.Label(new Rect(header.x + 70, header.y, header.width - 70, headerH), "GD Perf Tracker (Script)", _inspBold);
+
+        float y = header.yMax + 6f;
+        float fieldX = r.x + pad + labelW;
+        float fieldW = r.width - pad * 2f - labelW;
+
+        // Script row.
+        GUI.Label(new Rect(r.x + pad, y, labelW, rowH), "Script", _inspMutedStyle);
+        var scriptField = new Rect(fieldX, y + 3, fieldW, rowH - 6);
+        BrandTokens.Fill(scriptField, InspField);
+        GUI.Label(new Rect(scriptField.x + 6, scriptField.y, scriptField.width - 12, scriptField.height), "GDPerfTracker", _inspMutedStyle);
+        y += rowH;
+
+        // [Header] attribute text — clipped like the real Inspector.
+        GUI.BeginGroup(new Rect(r.x + pad, y, r.width - pad * 2f, rowH));
+        GUI.Label(new Rect(0, 0, 900, rowH), "Initial values — GDPerformance.Configure() (remote config) overrides these at runtime", _inspBold);
+        GUI.EndGroup();
+        y += rowH;
+
+        // Tracking Enabled.
+        GUI.Label(new Rect(r.x + pad, y, labelW, rowH), "Tracking Enabled", _inspLabel);
+        MockToggle(new Rect(fieldX, y + 4, 14, 14), _defTracking);
+        y += rowH;
+
+        // Sample Interval Seconds — [Range(1, 30)] slider + value box.
+        GUI.Label(new Rect(r.x + pad, y, labelW, rowH), "Sample Interval Seconds", _inspLabel);
+        const float valueW = 56f;
+        var track = new Rect(fieldX + 6, y + rowH * 0.5f - 1, fieldW - valueW - 18, 2);
+        BrandTokens.Fill(track, InspMuted);
+        float t = Mathf.InverseLerp(1f, 30f, _defInterval);
+        var knob = new Rect(track.x + t * track.width - 6, track.y - 5, 12, 12);
+        BrandTokens.Fill(knob, InspKnob);
+        var valueBox = new Rect(fieldX + fieldW - valueW, y + 3, valueW, rowH - 6);
+        BrandTokens.Fill(valueBox, InspField);
+        GUI.Label(new Rect(valueBox.x + 6, valueBox.y, valueBox.width - 6, valueBox.height), _defInterval.ToString("0.#"), _inspLabel);
+        y += rowH;
+
+        // Startup Tracking Enabled.
+        GUI.Label(new Rect(r.x + pad, y, labelW, rowH), "Startup Tracking Enabled", _inspLabel);
+        MockToggle(new Rect(fieldX, y + 4, 14, 14), _defStartup);
+    }
+
+    void MockToggle(Rect box, bool on)
+    {
+        BrandTokens.Fill(box, InspField);
+        BrandTokens.Outline(box, InspBorder);
+        if (on) GUI.Label(new Rect(box.x - 1, box.y - 2, box.width + 2, box.height + 2), "✓", _inspCheck);
     }
 
     static string OnOff(bool on) => on ? "ON" : "OFF";
@@ -511,7 +593,7 @@ if (payload != null)
         {
             ReadDefaults(existing, "instance already in '" + sceneName + "'");
             SetStatus(true, "Already set up — '" + sceneName + "' already contains a GDPerfTracker. Nothing added.");
-            ShowDefaultsDialog(sceneName, added: false);
+            Selection.activeGameObject = existing.gameObject;
             return;
         }
 
@@ -523,35 +605,8 @@ if (payload != null)
 
         ReadDefaults(instance.GetComponent<GDPerfTracker>(), "instance placed in '" + sceneName + "'");
         SetStatus(true, "Done — prefab added to '" + sceneName + "' and the scene was saved. " +
-                        "Check the defaults below, then click Next for the integration steps.");
-        ShowDefaultsDialog(sceneName, added: true);
-    }
-
-    /// <summary>Modal reminder shown right after placement: defaults are OFF, remote config is the switch.</summary>
-    void ShowDefaultsDialog(string sceneName, bool added)
-    {
-        string message =
-            (added ? "GDPerfTracker was added to '" + sceneName + "' and the scene was saved."
-                   : "'" + sceneName + "' already contains a GDPerfTracker.") +
-            "\n\nCurrent Inspector values on the prefab:\n" +
-            "    FPS / memory tracking:      " + OnOff(_defTracking) + "\n" +
-            "    Sample interval:            " + _defInterval.ToString("0.#") + " s\n" +
-            "    Startup-time reporting:     " + OnOff(_defStartup) + "\n\n" +
-            "These are only the initial values. Nothing records and no perfStats or loadingTime event is " +
-            "logged until GDPerformance.Configure() overrides them at runtime.\n\n" +
-            "Add the remote config keys perf_tracking_enabled, perf_sample_interval and " +
-            "startup_tracking_enabled, and call Configure() once remote config is fetched (Step 2).";
-
-        bool showConfigure = EditorUtility.DisplayDialog(
-            "Prefab defaults — configure via remote config",
-            message, "Show me Configure()", "Later");
-
-        if (showConfigure)
-        {
-            _page = 1;
-            _scroll = Vector2.zero;
-        }
-        Repaint();
+                        "It is selected in the Hierarchy; compare with the panel below, then click Next.");
+        Selection.activeGameObject = instance;
     }
 
     void OpenGuidePdf()
