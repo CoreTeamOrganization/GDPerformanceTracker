@@ -45,6 +45,7 @@ developer a `Dictionary<string, object>` and the developer's analytics code send
 | `Scripts/GDStartupTime.cs` | Cold-start stopwatch implementation (static). Never called directly. Needs no prefab. |
 | `Prefabs/GDPerfTracker.prefab` | Drag-and-drop setup. Inspector holds the **initial values** (all tracking OFF, interval 1s). |
 | `Editor/PerformanceTrackerWizard.cs` | Setup wizard — `Tools → GD Performance Tracker → Performance Tracker Wizard`. Editor-only. |
+| `Editor/Brand/` | Wizard design tokens (Game District cream / navy / gold) and the bundled Fraunces + Inter fonts. Editor-only. |
 | `Documentation/GDPerformanceTracker-Guide.pdf` | Full integration guide (payload field reference, Metica examples, caveats). |
 
 ---

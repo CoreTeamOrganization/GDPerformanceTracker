@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using GDPerformanceTracker.Brand;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -9,23 +10,40 @@ using UnityEngine;
 /// Menu: Tools > GD Performance Tracker > Performance Tracker Wizard
 ///
 /// Step 1 — pick a scene; the wizard adds the GDPerfTracker prefab to it
-///          (skips if the scene already has one) and saves the scene.
+///          (skips if the scene already has one), saves the scene, and shows the
+///          prefab's shipped defaults with a reminder to override them via
+///          GDPerformance.Configure() from remote config.
 /// Step 2 — shows the three integration calls the developer wires up manually,
 ///          each with a Copy button.
+///
+/// Visual language: Game District cream / navy / gold (see Brand/BrandTokens.cs).
+/// Fixed 900×600 hub window with the 6px gold left-bar.
 /// </summary>
 public class PerformanceTrackerWizard : EditorWindow
 {
     const string PrefabSearchFilter = "GDPerfTracker t:Prefab";
+
+    enum Tone { Gold, Ok, Warn }
 
     int _page;
     int _sceneIndex;
     string[] _scenePaths = new string[0];
     string[] _sceneNames = new string[0];
     string _status = "";
+    bool _statusOk;
     Vector2 _scroll;
 
-    GUIStyle _codeStyle, _stepTitle, _hintStyle, _pageTitle;
-    Texture2D _codeBg;
+    // Inspector values read back from the prefab asset, or from the instance once placed.
+    bool _defaultsKnown;
+    bool _defTracking;
+    float _defInterval = 1f;
+    bool _defStartup;
+    string _defSource = "";
+
+    bool _stylesBuilt;
+    GUIStyle _h2, _h3, _lede, _body, _muted, _eyebrow, _footnote, _statValue, _statValueOff,
+             _calloutTitle, _code, _popup, _btnPrimary, _btnSecondary, _btnGhost,
+             _calloutGold, _calloutOk, _calloutWarn;
 
     const string SnippetConfigure =
 @"bool  perfOn    = MonetizationServices.Remote.GetRemoteValue<bool>(""perf_tracking_enabled"");
@@ -59,196 +77,350 @@ if (payload != null)
     [MenuItem("Tools/GD Performance Tracker/Performance Tracker Wizard")]
     static void Open()
     {
-        var w = GetWindow<PerformanceTrackerWizard>(true, "Performance Tracker Wizard");
-        w.minSize = new Vector2(640, 540);
+        var w = GetWindow<PerformanceTrackerWizard>(true, "Performance Tracker Wizard", true);
+        w.minSize = BrandTokens.HubSize;
+        w.maxSize = BrandTokens.HubSize;
+        w.wantsMouseMove = true;
         w.RefreshSceneList();
+        w.ReadDefaultsFromPrefabAsset();
     }
 
     // ---------------- styles ----------------
 
     void EnsureStyles()
     {
-        if (_codeStyle != null) return;
+        if (_stylesBuilt) return;
+        _stylesBuilt = true;
 
-        _codeBg = new Texture2D(1, 1);
-        _codeBg.SetPixel(0, 0, EditorGUIUtility.isProSkin
-            ? new Color(0.118f, 0.125f, 0.145f)
-            : new Color(0.93f, 0.94f, 0.96f));
-        _codeBg.Apply();
-        _codeBg.hideFlags = HideFlags.HideAndDontSave;
+        Font heading = BrandTokens.Fraunces;
+        Font italic  = BrandTokens.FrauncesItalic;
+        Font ui      = BrandTokens.Inter;
+        Font mono    = Font.CreateDynamicFontFromOSFont(
+            new[] { "SF Mono", "Menlo", "Consolas", "Courier New" }, BrandTokens.SizeMono);
 
-        Font mono = Font.CreateDynamicFontFromOSFont(
-            new[] { "SF Mono", "Menlo", "Consolas", "Courier New" }, 11);
+        _h2       = BrandTokens.MakeStyle(heading, BrandTokens.SizeH2, BrandTokens.Navy);
+        _h3       = BrandTokens.MakeStyle(heading, BrandTokens.SizeH3, BrandTokens.Navy);
+        _lede     = BrandTokens.MakeWrappedStyle(italic ?? heading, BrandTokens.SizeLede, BrandTokens.Ink,
+                        italic != null ? FontStyle.Normal : FontStyle.Italic);
+        _body     = BrandTokens.MakeWrappedStyle(ui, BrandTokens.SizeBody, BrandTokens.Ink);
+        _muted    = BrandTokens.MakeWrappedStyle(ui, BrandTokens.SizeUI, BrandTokens.WarmGray);
+        _eyebrow  = BrandTokens.MakeStyle(ui, BrandTokens.SizeEyebrow, BrandTokens.WarmGray, FontStyle.Bold);
+        _footnote = BrandTokens.MakeStyle(ui, BrandTokens.SizeFootnote, BrandTokens.WarmGray, FontStyle.Normal, TextAnchor.MiddleLeft);
+        _statValue    = BrandTokens.MakeStyle(heading, BrandTokens.SizeStatNum, BrandTokens.Navy);
+        _statValueOff = BrandTokens.MakeStyle(heading, BrandTokens.SizeStatNum, BrandTokens.Amber);
+        _calloutTitle = BrandTokens.MakeStyle(ui, BrandTokens.SizeBody, BrandTokens.Navy, FontStyle.Bold);
 
-        _codeStyle = new GUIStyle(EditorStyles.label)
+        _code = new GUIStyle
         {
-            font = mono,
-            fontSize = 11,
+            fontSize = BrandTokens.SizeMono,
             wordWrap = false,
             richText = false,
-            padding = new RectOffset(12, 12, 10, 10),
-            normal =
-            {
-                background = _codeBg,
-                textColor = EditorGUIUtility.isProSkin
-                    ? new Color(0.85f, 0.87f, 0.90f)
-                    : new Color(0.13f, 0.15f, 0.20f)
-            }
+            padding  = new RectOffset(18, 16, 12, 12),
         };
+        if (mono != null) _code.font = mono;
+        var codeBg = BrandTokens.SolidTex(BrandTokens.Navy);
+        _code.normal.background  = codeBg; _code.normal.textColor  = BrandTokens.Cream;
+        _code.hover.background   = codeBg; _code.hover.textColor   = BrandTokens.Cream;
+        _code.active.background  = codeBg; _code.active.textColor  = BrandTokens.Cream;
+        _code.focused.background = codeBg; _code.focused.textColor = BrandTokens.Cream;
 
-        _stepTitle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 13 };
-        _pageTitle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 16 };
-        _hintStyle = new GUIStyle(EditorStyles.wordWrappedLabel)
-        {
-            fontSize = 11,
-            normal = { textColor = EditorGUIUtility.isProSkin
-                ? new Color(0.65f, 0.67f, 0.70f)
-                : new Color(0.35f, 0.37f, 0.40f) }
-        };
+        _btnPrimary   = MakeButton(ui, BrandTokens.Gold, BrandTokens.Navy, Color.Lerp(BrandTokens.Gold, BrandTokens.Navy, 0.12f));
+        _btnSecondary = MakeButton(ui, BrandTokens.Navy, BrandTokens.Cream, Color.Lerp(BrandTokens.Navy, BrandTokens.Cream, 0.15f));
+        _btnGhost     = MakeButton(ui, BrandTokens.Tint(BrandTokens.Navy, 0.08f), BrandTokens.Navy, BrandTokens.Tint(BrandTokens.Gold, 0.35f));
+
+        _popup = new GUIStyle(EditorStyles.popup) { fontSize = BrandTokens.SizeUI, fixedHeight = 26 };
+        if (ui != null) _popup.font = ui;
+
+        _calloutGold = MakeCallout(BrandTokens.Gold);
+        _calloutOk   = MakeCallout(BrandTokens.Shipped);
+        _calloutWarn = MakeCallout(BrandTokens.Overdue);
     }
+
+    static GUIStyle MakeButton(Font font, Color bg, Color fg, Color hoverBg)
+    {
+        var s = new GUIStyle
+        {
+            fontSize  = BrandTokens.SizeUI,
+            alignment = TextAnchor.MiddleCenter,
+            padding   = new RectOffset(18, 18, 0, 0),
+            richText  = false,
+        };
+        if (font != null) s.font = font;
+        s.normal.background  = BrandTokens.SolidTex(bg);              s.normal.textColor  = fg;
+        s.hover.background   = BrandTokens.SolidTex(hoverBg);         s.hover.textColor   = fg;
+        s.focused.background = BrandTokens.SolidTex(bg);              s.focused.textColor = fg;
+        s.active.background  = BrandTokens.SolidTex(BrandTokens.Navy); s.active.textColor = BrandTokens.Cream;
+        return s;
+    }
+
+    static GUIStyle MakeCallout(Color accent)
+    {
+        var s = new GUIStyle { padding = new RectOffset(20, 16, 12, 14) };
+        s.normal.background = BrandTokens.SolidTex(BrandTokens.Tint(accent, 0.10f));
+        return s;
+    }
+
+    // ---------------- frame ----------------
 
     void OnGUI()
     {
         EnsureStyles();
-        _scroll = EditorGUILayout.BeginScrollView(_scroll);
-        GUILayout.Space(14);
-        using (new EditorGUILayout.HorizontalScope())
+        if (Event.current.type == EventType.MouseMove) Repaint();
+
+        // Page ground + the 6px gold left-bar signature.
+        BrandTokens.Fill(new Rect(0, 0, position.width, position.height), BrandTokens.Cream);
+        BrandTokens.Fill(new Rect(0, 0, BrandTokens.GoldBarWidth, position.height), BrandTokens.Gold);
+
+        var content = new Rect(
+            BrandTokens.GoldBarWidth + BrandTokens.PadEdge,
+            BrandTokens.PadTop,
+            position.width - BrandTokens.GoldBarWidth - BrandTokens.PadEdge * 2f,
+            position.height - BrandTokens.PadTop * 2f);
+
+        GUILayout.BeginArea(content);
+        if (_page == 0) DrawScenePage();
+        else DrawIntegrationPage();
+        GUILayout.EndArea();
+    }
+
+    void Header(string eyebrow, string title, string lede)
+    {
+        Eyebrow(eyebrow);
+        GUILayout.Space(6);
+        GUILayout.Label(title, _h2);
+        if (!string.IsNullOrEmpty(lede))
         {
-            GUILayout.Space(16);
-            using (new EditorGUILayout.VerticalScope())
-            {
-                if (_page == 0) DrawScenePage();
-                else DrawIntegrationPage();
-            }
-            GUILayout.Space(16);
+            GUILayout.Space(4);
+            GUILayout.Label(lede, _lede);
         }
-        EditorGUILayout.EndScrollView();
+        Hairline(14, 16);
+    }
+
+    void Eyebrow(string text)
+    {
+        Rect r = GUILayoutUtility.GetRect(0, 16, GUILayout.ExpandWidth(true));
+        BrandTokens.Fill(new Rect(r.x, r.y + 5, BrandTokens.EyebrowSquare, BrandTokens.EyebrowSquare), BrandTokens.Gold);
+        float x = r.x + BrandTokens.EyebrowSquare + 8;
+        GUI.Label(new Rect(x, r.y, r.width - (x - r.x), r.height), text.ToUpperInvariant(), _eyebrow);
+    }
+
+    void Hairline(float before, float after)
+    {
+        GUILayout.Space(before);
+        Rect r = GUILayoutUtility.GetRect(0, BrandTokens.Hairline, GUILayout.ExpandWidth(true));
+        BrandTokens.Fill(r, BrandTokens.Taupe);
+        GUILayout.Space(after);
+    }
+
+    void Callout(Tone tone, string title, string body)
+    {
+        GUIStyle box   = tone == Tone.Ok ? _calloutOk : tone == Tone.Warn ? _calloutWarn : _calloutGold;
+        Color   accent = tone == Tone.Ok ? BrandTokens.Shipped : tone == Tone.Warn ? BrandTokens.Overdue : BrandTokens.Gold;
+
+        using (new GUILayout.VerticalScope(box))
+        {
+            if (!string.IsNullOrEmpty(title))
+            {
+                GUILayout.Label(title, _calloutTitle);
+                GUILayout.Space(4);
+            }
+            GUILayout.Label(body, _body);
+        }
+        AccentBar(accent);
+    }
+
+    /// <summary>3px accent bar down the left edge of the last laid-out block.</summary>
+    void AccentBar(Color accent)
+    {
+        if (Event.current.type != EventType.Repaint) return;
+        Rect r = GUILayoutUtility.GetLastRect();
+        BrandTokens.Fill(new Rect(r.x, r.y, 3, r.height), accent);
     }
 
     // ---------------- Page 1: scene + prefab ----------------
 
     void DrawScenePage()
     {
-        GUILayout.Label("Add the tracker to a scene", _pageTitle);
-        GUILayout.Label("Step 1 of 2", _hintStyle);
-        Separator();
+        Header("Step 1 of 2", "Add the tracker to a scene",
+            "Pick the scene where the tracker should live — normally your first scene (boot or splash). " +
+            "The prefab survives scene loads, so one scene covers the whole game.");
 
-        GUILayout.Label(
-            "Pick the scene where the tracker should live — normally your FIRST scene (boot/splash). " +
-            "The prefab survives scene loads, so one scene covers the whole game. " +
-            "All tracking ships DISABLED. Initial on/off values can be set on the prefab in the " +
-            "Inspector; Configure() from remote config (step 2) overrides them at runtime.",
-            _hintStyle);
+        _scroll = EditorGUILayout.BeginScrollView(_scroll, GUILayout.ExpandHeight(true));
 
-        GUILayout.Space(12);
         if (_scenePaths.Length == 0)
         {
-            EditorGUILayout.HelpBox("No scenes found under Assets/.", MessageType.Warning);
-            if (GUILayout.Button("Refresh scene list", GUILayout.Width(160))) RefreshSceneList();
-            return;
-        }
-
-        _sceneIndex = EditorGUILayout.Popup("Target scene",
-            Mathf.Clamp(_sceneIndex, 0, _scenePaths.Length - 1), _sceneNames);
-
-        GUILayout.Space(12);
-        using (new EditorGUILayout.HorizontalScope())
-        {
-            if (GUILayout.Button("Add prefab to selected scene", GUILayout.Height(32), GUILayout.Width(220)))
-                AddPrefabToScene(_scenePaths[_sceneIndex]);
-            GUILayout.Space(6);
-            if (GUILayout.Button("Refresh scenes", GUILayout.Height(32), GUILayout.Width(120)))
+            Callout(Tone.Warn, "No scenes found under Assets/", "Create or import a scene, then refresh the list.");
+            GUILayout.Space(12);
+            if (GUILayout.Button("Refresh scene list", _btnGhost, GUILayout.Width(160), GUILayout.Height(32)))
                 RefreshSceneList();
+        }
+        else
+        {
+            Eyebrow("Target scene");
+            GUILayout.Space(6);
+            _sceneIndex = EditorGUILayout.Popup(
+                Mathf.Clamp(_sceneIndex, 0, _scenePaths.Length - 1), _sceneNames, _popup, GUILayout.Width(560));
+
+            GUILayout.Space(14);
+            using (new GUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Add prefab to selected scene", _btnPrimary, GUILayout.Width(240), GUILayout.Height(32)))
+                    AddPrefabToScene(_scenePaths[_sceneIndex]);
+                GUILayout.Space(8);
+                if (GUILayout.Button("Refresh scenes", _btnGhost, GUILayout.Width(130), GUILayout.Height(32)))
+                    RefreshSceneList();
+            }
         }
 
         if (!string.IsNullOrEmpty(_status))
         {
-            GUILayout.Space(8);
-            EditorGUILayout.HelpBox(_status,
-                _status.StartsWith("Done") || _status.StartsWith("Already")
-                    ? MessageType.Info : MessageType.Warning);
+            GUILayout.Space(14);
+            Callout(_statusOk ? Tone.Ok : Tone.Warn, null, _status);
         }
 
-        GUILayout.Space(24);
-        Separator();
-        using (new EditorGUILayout.HorizontalScope())
+        GUILayout.Space(18);
+        DrawDefaultsPanel();
+        GUILayout.Space(8);
+
+        EditorGUILayout.EndScrollView();
+
+        Hairline(10, 12);
+        using (new GUILayout.HorizontalScope())
         {
+            GUILayout.Label("Game District · Performance Tracker", _footnote, GUILayout.Height(32));
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Next: Integration steps  →", GUILayout.Height(30), GUILayout.Width(210)))
+            if (GUILayout.Button("Next: Integration steps  →", _btnPrimary, GUILayout.Width(230), GUILayout.Height(32)))
+            {
                 _page = 1;
+                _scroll = Vector2.zero;
+            }
         }
-        GUILayout.Space(10);
     }
+
+    /// <summary>
+    /// The prefab ships with everything OFF. Show the real Inspector values and make it
+    /// unmistakable that remote config (Configure) is the switch, not the Inspector.
+    /// </summary>
+    void DrawDefaultsPanel()
+    {
+        using (new GUILayout.VerticalScope(_calloutGold))
+        {
+            GUILayout.Label("Prefab defaults — override them from remote config", _calloutTitle);
+            if (_defaultsKnown)
+                GUILayout.Label("Values read from the " + _defSource + ".", _muted);
+            GUILayout.Space(10);
+
+            using (new GUILayout.HorizontalScope())
+            {
+                Stat("FPS / memory tracking", OnOff(_defTracking), !_defTracking);
+                Stat("Sample interval",       _defInterval.ToString("0.#") + " s", false);
+                Stat("Startup-time reporting", OnOff(_defStartup), !_defStartup);
+            }
+
+            GUILayout.Space(12);
+            GUILayout.Label(
+                "These are only the INITIAL values. While tracking is OFF nothing records and no perfStats or " +
+                "loadingTime event is ever logged. Do not treat the Inspector as the switch: call " +
+                "GDPerformance.Configure() once remote config is fetched so the keys perf_tracking_enabled, " +
+                "perf_sample_interval and startup_tracking_enabled control both kill switches at runtime. " +
+                "The Configure() snippet is in Step 2.",
+                _body);
+        }
+        AccentBar(BrandTokens.Gold);
+    }
+
+    void Stat(string label, string value, bool attention)
+    {
+        using (new GUILayout.VerticalScope(GUILayout.Width(220)))
+        {
+            GUILayout.Label(value, attention ? _statValueOff : _statValue);
+            GUILayout.Label(label, _muted);
+        }
+    }
+
+    static string OnOff(bool on) => on ? "ON" : "OFF";
 
     // ---------------- Page 2: developer integration ----------------
 
     void DrawIntegrationPage()
     {
-        GUILayout.Label("Wire it up in code", _pageTitle);
-        GUILayout.Label("Step 2 of 2 — these three calls are the developer's part. " +
-                        "Adapt service names to this game's stack if it differs.", _hintStyle);
-        Separator();
+        Header("Step 2 of 2", "Wire it up in code",
+            "These three calls are the developer's part. Adapt service names to this game's stack if it differs. " +
+            "Until Configure() runs, the prefab's Inspector defaults apply — and those ship OFF.");
+
+        _scroll = EditorGUILayout.BeginScrollView(_scroll, GUILayout.ExpandHeight(true));
 
         DrawSnippet(1, "Configure from remote config",
-            "Once at startup, after remote config is fetched. Controls BOTH kill switches: FPS tracker and startup-time reporting — overriding the prefab's Inspector defaults. Without this call, the Inspector values apply.",
+            "Once at startup, after remote config is fetched. Controls BOTH kill switches — FPS tracker and " +
+            "startup-time reporting — overriding the prefab's Inspector defaults. Without this call, the " +
+            "Inspector values apply.",
             SnippetConfigure);
 
         DrawSnippet(2, "Log the FPS / memory event — \"perfStats\"",
-            "At your chosen logging moment (level end, session end). ConsumePerfPayload() returns everything since the last call, then resets. Null = nothing recorded, skip.",
+            "At your chosen logging moment (level end, session end). ConsumePerfPayload() returns everything " +
+            "since the last call, then resets. Null = nothing recorded, skip.",
             SnippetLogPerf);
 
         DrawSnippet(3, "Capture + log startup time — \"loadingTime\"",
-            "MarkGameInteractive() fires where THIS game becomes genuinely playable. Unity-control time is captured automatically — no prefab needed. GetStartupPayload() returns null when startup tracking is disabled — skip logging. Null-strip values before Metica (iOS drops events containing nulls).",
+            "MarkGameInteractive() fires where THIS game becomes genuinely playable. Unity-control time is " +
+            "captured automatically — no prefab needed. GetStartupPayload() returns null when startup tracking " +
+            "is disabled — skip logging. Null-strip values before Metica (iOS drops events containing nulls).",
             SnippetStartup);
 
-        GUILayout.Space(16);
-        Separator();
-        using (new EditorGUILayout.HorizontalScope())
+        GUILayout.Space(8);
+        EditorGUILayout.EndScrollView();
+
+        Hairline(10, 12);
+        using (new GUILayout.HorizontalScope())
         {
-            if (GUILayout.Button("←  Back", GUILayout.Height(30), GUILayout.Width(100)))
+            if (GUILayout.Button("←  Back", _btnGhost, GUILayout.Width(100), GUILayout.Height(32)))
+            {
                 _page = 0;
+                _scroll = Vector2.zero;
+            }
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Open Guide PDF", GUILayout.Height(30), GUILayout.Width(140)))
+            if (GUILayout.Button("Open Guide PDF", _btnSecondary, GUILayout.Width(150), GUILayout.Height(32)))
                 OpenGuidePdf();
-            GUILayout.Space(6);
-            if (GUILayout.Button("Done", GUILayout.Height(30), GUILayout.Width(100)))
+            GUILayout.Space(8);
+            if (GUILayout.Button("Done", _btnPrimary, GUILayout.Width(110), GUILayout.Height(32)))
                 Close();
         }
-        GUILayout.Space(10);
     }
 
     void DrawSnippet(int number, string title, string hint, string code)
     {
-        GUILayout.Space(14);
-        using (new EditorGUILayout.HorizontalScope())
+        if (number > 1) GUILayout.Space(20);
+
+        using (new GUILayout.HorizontalScope())
         {
-            GUILayout.Label(number + ".  " + title, _stepTitle);
+            GUILayout.Label(number + ".  " + title, _h3);
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Copy", GUILayout.Width(64), GUILayout.Height(22)))
+            if (GUILayout.Button("Copy", _btnGhost, GUILayout.Width(76), GUILayout.Height(26)))
             {
                 EditorGUIUtility.systemCopyBuffer = code;
                 ShowNotification(new GUIContent("Copied"));
             }
         }
-        GUILayout.Label(hint, _hintStyle);
         GUILayout.Space(4);
+        GUILayout.Label(hint, _muted);
+        GUILayout.Space(8);
 
-        // Read-only, selectable, monospace code box.
-        float height = _codeStyle.CalcHeight(new GUIContent(code), position.width - 40);
+        // Read-only, selectable, monospace code box on navy with the gold accent bar.
+        float width  = position.width - BrandTokens.GoldBarWidth - BrandTokens.PadEdge * 2f - 20f;
+        float height = _code.CalcHeight(new GUIContent(code), width);
         Rect r = GUILayoutUtility.GetRect(0, height, GUILayout.ExpandWidth(true));
-        EditorGUI.SelectableLabel(r, code, _codeStyle);
-    }
-
-    void Separator()
-    {
-        GUILayout.Space(8);
-        Rect r = GUILayoutUtility.GetRect(0, 1, GUILayout.ExpandWidth(true));
-        EditorGUI.DrawRect(r, EditorGUIUtility.isProSkin
-            ? new Color(1, 1, 1, 0.10f) : new Color(0, 0, 0, 0.15f));
-        GUILayout.Space(8);
+        EditorGUI.SelectableLabel(r, code, _code);
+        BrandTokens.Fill(new Rect(r.x, r.y, 3, r.height), BrandTokens.Gold);
     }
 
     // ---------------- actions ----------------
+
+    void SetStatus(bool ok, string message)
+    {
+        _statusOk = ok;
+        _status = message;
+        Repaint();
+    }
 
     void RefreshSceneList()
     {
@@ -256,7 +428,7 @@ if (payload != null)
         foreach (string guid in AssetDatabase.FindAssets("t:Scene"))
         {
             string p = AssetDatabase.GUIDToAssetPath(guid);
-            if (p.StartsWith("Assets/")) paths.Add(p);   // skip Packages/
+            if (p.StartsWith("Assets/")) paths.Add(p);   // games' scenes only, skip Packages/
         }
         paths.Sort();
         _scenePaths = paths.ToArray();
@@ -269,28 +441,56 @@ if (payload != null)
             if (_scenePaths[i] == active) { _sceneIndex = i; break; }
     }
 
-    void AddPrefabToScene(string scenePath)
+    GameObject FindPrefabAsset()
     {
-        GameObject prefab = null;
         foreach (string guid in AssetDatabase.FindAssets(PrefabSearchFilter))
         {
             string p = AssetDatabase.GUIDToAssetPath(guid);
             var candidate = AssetDatabase.LoadAssetAtPath<GameObject>(p);
-            if (candidate != null && candidate.GetComponent<GDPerfTracker>() != null) { prefab = candidate; break; }
+            if (candidate != null && candidate.GetComponent<GDPerfTracker>() != null) return candidate;
         }
+        return null;
+    }
+
+    void ReadDefaultsFromPrefabAsset()
+    {
+        var prefab = FindPrefabAsset();
+        if (prefab != null) ReadDefaults(prefab.GetComponent<GDPerfTracker>(), "prefab asset");
+    }
+
+    void ReadDefaults(GDPerfTracker tracker, string source)
+    {
+        if (tracker == null) return;
+        var so = new SerializedObject(tracker);
+        var tracking = so.FindProperty("trackingEnabled");
+        var interval = so.FindProperty("sampleIntervalSeconds");
+        var startup  = so.FindProperty("startupTrackingEnabled");
+        if (tracking == null || interval == null || startup == null) return;
+
+        _defTracking   = tracking.boolValue;
+        _defInterval   = interval.floatValue;
+        _defStartup    = startup.boolValue;
+        _defSource     = source;
+        _defaultsKnown = true;
+    }
+
+    void AddPrefabToScene(string scenePath)
+    {
+        GameObject prefab = FindPrefabAsset();
         if (prefab == null)
         {
-            _status = "GDPerfTracker prefab not found in the project. Re-import the GDPerformanceTracker package.";
+            SetStatus(false, "GDPerfTracker prefab not found in the project. Re-import the GDPerformanceTracker package.");
             return;
         }
 
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
         {
-            _status = "Cancelled — current scene changes were not saved.";
+            SetStatus(false, "Cancelled — current scene changes were not saved.");
             return;
         }
 
         var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+        string sceneName = Path.GetFileNameWithoutExtension(scenePath);
 
 #if UNITY_2022_2_OR_NEWER
         var existing = Object.FindFirstObjectByType<GDPerfTracker>();
@@ -299,7 +499,9 @@ if (payload != null)
 #endif
         if (existing != null)
         {
-            _status = "Already set up — this scene already contains a GDPerfTracker. Nothing added.";
+            ReadDefaults(existing, "instance already in '" + sceneName + "'");
+            SetStatus(true, "Already set up — '" + sceneName + "' already contains a GDPerfTracker. Nothing added.");
+            ShowDefaultsDialog(sceneName, added: false);
             return;
         }
 
@@ -309,8 +511,37 @@ if (payload != null)
         EditorSceneManager.SaveScene(scene);
         EditorGUIUtility.PingObject(instance);
 
-        _status = "Done — prefab added to '" + Path.GetFileNameWithoutExtension(scenePath) +
-                  "' and the scene was saved. Click Next for the integration steps.";
+        ReadDefaults(instance.GetComponent<GDPerfTracker>(), "instance placed in '" + sceneName + "'");
+        SetStatus(true, "Done — prefab added to '" + sceneName + "' and the scene was saved. " +
+                        "Check the defaults below, then click Next for the integration steps.");
+        ShowDefaultsDialog(sceneName, added: true);
+    }
+
+    /// <summary>Modal reminder shown right after placement: defaults are OFF, remote config is the switch.</summary>
+    void ShowDefaultsDialog(string sceneName, bool added)
+    {
+        string message =
+            (added ? "GDPerfTracker was added to '" + sceneName + "' and the scene was saved."
+                   : "'" + sceneName + "' already contains a GDPerfTracker.") +
+            "\n\nCurrent Inspector values on the prefab:\n" +
+            "    FPS / memory tracking:      " + OnOff(_defTracking) + "\n" +
+            "    Sample interval:            " + _defInterval.ToString("0.#") + " s\n" +
+            "    Startup-time reporting:     " + OnOff(_defStartup) + "\n\n" +
+            "These are only the initial values. Nothing records and no perfStats or loadingTime event is " +
+            "logged until GDPerformance.Configure() overrides them at runtime.\n\n" +
+            "Add the remote config keys perf_tracking_enabled, perf_sample_interval and " +
+            "startup_tracking_enabled, and call Configure() once remote config is fetched (Step 2).";
+
+        bool showConfigure = EditorUtility.DisplayDialog(
+            "Prefab defaults — configure via remote config",
+            message, "Show me Configure()", "Later");
+
+        if (showConfigure)
+        {
+            _page = 1;
+            _scroll = Vector2.zero;
+        }
+        Repaint();
     }
 
     void OpenGuidePdf()
