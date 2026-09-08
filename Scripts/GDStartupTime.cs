@@ -22,8 +22,11 @@ internal static class GDStartupTime
 
     public const float NotCaptured = -1f;
 
-    public const string KeyUnityControlMs = "unityControlMs";
-    public const string KeyInteractiveMs  = "interactiveMs";
+    // Pipeline keys for the loadingTime event:
+    //   coldStartTimeMs — process start → Unity takes control (the cold start itself)
+    //   appLoadTimeMs   — process start → game genuinely playable (the loading)
+    public const string KeyColdStartTimeMs = "coldStartTimeMs";
+    public const string KeyAppLoadTimeMs   = "appLoadTimeMs";
 
 #if UNITY_ANDROID && !UNITY_EDITOR
     private static readonly AndroidJavaClass _processClass = new AndroidJavaClass("android.os.Process");
@@ -72,8 +75,8 @@ internal static class GDStartupTime
         if (!Enabled) return null;   // kill switch: no payload, nothing to log
         return new Dictionary<string, object>
         {
-            { KeyUnityControlMs, _unityControlCaptured ? _unityControlMs : NotCaptured },
-            { KeyInteractiveMs,  _interactiveCaptured  ? _interactiveMs  : NotCaptured }
+            { KeyColdStartTimeMs, _unityControlCaptured ? _unityControlMs : NotCaptured },
+            { KeyAppLoadTimeMs,   _interactiveCaptured  ? _interactiveMs  : NotCaptured }
         };
     }
 

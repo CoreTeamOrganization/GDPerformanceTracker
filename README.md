@@ -128,7 +128,8 @@ the portfolio: **`perfStats`** and **`loadingTime`** (via
    (MB), `seconds`, `tier_fps` (the FPS cap — required to interpret FPS fields
    fairly: p50=29 on a 30-cap device is perfect). Device model is deliberately
    NOT included (tracked elsewhere in the pipeline; join on user/session id).
-   **Payload (loadingTime):** `unityControlMs`, `interactiveMs`; `-1` means that
+   **Payload (loadingTime):** `coldStartTimeMs` (process start → Unity takes
+   control), `appLoadTimeMs` (process start → game playable); `-1` means that
    milestone was never captured (deliberately distinct from a fake 0 ms).
 
 8. **Android specifics.** `GDStartupTime` uses `Process.getStartUptimeMillis()`

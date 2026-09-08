@@ -42,7 +42,8 @@ public static class GDPerformance
     }
 
     /// <summary>Cold-start payload for the "loadingTime" event:
-    /// unityControlMs and interactiveMs (-1 = that milestone was never captured).
+    /// coldStartTimeMs (process start → Unity takes control) and appLoadTimeMs
+    /// (process start → game playable); -1 = that milestone was never captured.
     /// Returns NULL when startup tracking is disabled via Configure() — skip
     /// logging on null. Null-strip values before Metica on iOS.</summary>
     public static Dictionary<string, object> GetStartupPayload()
