@@ -122,10 +122,10 @@ the portfolio: **`perfStats`** and **`loadTime`** (via
    Frame times are skipped for 3 frames after scene load / pause / focus so
    loading spikes don't pollute the window.
 
-7. **Payload (perfStats):** `fps_avg`, `fps_min`, percentiles `fps_p01/p05/p25/
-   p50/p75/p95/p99` (p01 = the stutter metric), `worst_ms` (single worst frame),
-   `ram_total`, `mem_alloc_peak/avg`, `mem_resv_peak/avg`, `mem_sys_peak/avg`
-   (MB), `seconds`, `tier_fps` (the FPS cap — required to interpret FPS fields
+7. **Payload (perfStats):** `fpsAvg`, `fpsMin`, percentiles `fpsP01/P05/P25/
+   P50/P75/P95/P99` (p01 = the stutter metric), `worstMs` (single worst frame),
+   `ramTotal`, `ramAllocPeak/Avg`, `ramResvPeak/Avg`, `ramSysPeak/Avg`
+   (MB), `seconds`, `tierFps` (the FPS cap — required to interpret FPS fields
    fairly: p50=29 on a 30-cap device is perfect). Device model is deliberately
    NOT included (tracked elsewhere in the pipeline; join on user/session id).
    **Payload (loadTime):** `coldStartTimeMs` (process start → Unity takes
