@@ -1,6 +1,6 @@
 {
   "name": "com.gamedistrict.performance-tracker",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "displayName": "GD Performance Tracker",
   "description": "RAM-only FPS/memory and cold-start instrumentation for Unity mobile games. Records into RAM and hands the game one payload to log via its own analytics (perfStats / loadingTime).",
   "unity": "2022.3",
