@@ -8,7 +8,7 @@ using UnityEngine;
 ///   1. Configure(enabled, interval)   — once, after remote config is fetched
 ///   2. ConsumePerfPayload()           — at your logging moment ("perfStats" event)
 ///   3. MarkGameInteractive()          — once, when the game is genuinely playable
-///   4. GetStartupPayload()            — when logging the "loadingTime" event
+///   4. GetStartupPayload()            — when logging the "loadTime" event
 /// </summary>
 public static class GDPerformance
 {
@@ -16,7 +16,7 @@ public static class GDPerformance
     /// perfEnabled: FPS/memory tracker on/off (off = records nothing).
     /// sampleIntervalSeconds: seconds per FPS sample (1 = one per second), clamped 1–30.
     /// startupEnabled: startup-time reporting on/off (off = GetStartupPayload()
-    /// returns null, so no loadingTime event gets logged).</summary>
+    /// returns null, so no loadTime event gets logged).</summary>
     public static void Configure(bool perfEnabled, float sampleIntervalSeconds = 1f, bool startupEnabled = false)
     {
         GDStartupTime.Enabled = startupEnabled;
@@ -41,7 +41,7 @@ public static class GDPerformance
         GDStartupTime.CaptureInteractiveTime();
     }
 
-    /// <summary>Cold-start payload for the "loadingTime" event:
+    /// <summary>Cold-start payload for the "loadTime" event:
     /// coldStartTimeMs (process start → Unity takes control) and appLoadTimeMs
     /// (process start → game playable); -1 = that milestone was never captured.
     /// Returns NULL when startup tracking is disabled via Configure() — skip

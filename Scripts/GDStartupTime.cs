@@ -22,7 +22,7 @@ internal static class GDStartupTime
 
     public const float NotCaptured = -1f;
 
-    // Pipeline keys for the loadingTime event:
+    // Pipeline keys for the loadTime event:
     //   coldStartTimeMs — process start → Unity takes control (the cold start itself)
     //   appLoadTimeMs   — process start → game genuinely playable (the loading)
     public const string KeyColdStartTimeMs = "coldStartTimeMs";

@@ -28,7 +28,7 @@ Two utilities behind one 4-method API:
   and logs it through the game's own analytics (`perfStats` event).
 - **GDStartupTime** — measures cold start from **actual OS process creation** (not Unity
   engine init): time until Unity takes control (automatic) and time until the game is
-  genuinely playable (one developer call). Logged as the `loadingTime` event.
+  genuinely playable (one developer call). Logged as the `loadTime` event.
 
 Neither utility writes to disk, and neither sends anything itself — they hand the
 developer a `Dictionary<string, object>` and the developer's analytics code sends it.
@@ -64,7 +64,7 @@ Dictionary<string, object> perf = GDPerformance.ConsumePerfPayload();
 // 3) Once, the moment the game is genuinely playable (idempotent):
 GDPerformance.MarkGameInteractive();
 
-// 4) When logging the loadingTime event (null = startup tracking disabled → skip):
+// 4) When logging the loadTime event (null = startup tracking disabled → skip):
 Dictionary<string, object> startup = GDPerformance.GetStartupPayload();
 ```
 
@@ -75,7 +75,7 @@ from the game's `GDMeticaAnalytics`), add the game's own context fields (for
 example `taskId`, `taskName`, `subTaskId`, `subTaskName`, `day`), then send.
 Null-strip values before Metica (the SDK silently drops events containing nulls
 on iOS). Event names used across
-the portfolio: **`perfStats`** and **`loadingTime`** (via
+the portfolio: **`perfStats`** and **`loadTime`** (via
 `MeticaSdk.Analytics.LogCustomEvent` — it rejects Metica core event names).
 
 ---
@@ -128,7 +128,7 @@ the portfolio: **`perfStats`** and **`loadingTime`** (via
    (MB), `seconds`, `tier_fps` (the FPS cap — required to interpret FPS fields
    fairly: p50=29 on a 30-cap device is perfect). Device model is deliberately
    NOT included (tracked elsewhere in the pipeline; join on user/session id).
-   **Payload (loadingTime):** `coldStartTimeMs` (process start → Unity takes
+   **Payload (loadTime):** `coldStartTimeMs` (process start → Unity takes
    control), `appLoadTimeMs` (process start → game playable); `-1` means that
    milestone was never captured (deliberately distinct from a fake 0 ms).
 
@@ -144,7 +144,7 @@ the portfolio: **`perfStats`** and **`loadingTime`** (via
    prefab (skips if one already exists), saves the scene, selects the new object,
    and draws the component as it appears in the Inspector with its live values plus
    the remote-config reminder; (2) the three
-   integration snippets (Configure / perfStats / loadingTime) with Copy buttons,
+   integration snippets (Configure / perfStats / loadTime) with Copy buttons,
    monospace code styling, and an Open-Guide-PDF button. Lives in `Editor/`,
    never ships in builds.
 
@@ -162,6 +162,6 @@ the portfolio: **`perfStats`** and **`loadingTime`** (via
 3. Wire the three calls from Step 2 (or the PDF): Configure after remote config;
    `ConsumePerfPayload` + base fields + `LogCustomEvent("perfStats", …)` at the
    logging moment; `MarkGameInteractive` at the playable moment +
-   `GetStartupPayload` + `LogCustomEvent("loadingTime", …)`.
+   `GetStartupPayload` + `LogCustomEvent("loadTime", …)`.
 4. Add the three remote config keys: `perf_tracking_enabled` (bool),
    `perf_sample_interval` (float), `startup_tracking_enabled` (bool).

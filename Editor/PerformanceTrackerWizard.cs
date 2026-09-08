@@ -99,7 +99,7 @@ payload[""subTaskName""] = subTaskName;
 payload[""day""]         = day;
 
 // 4) Send (null-strip first: adid can still be null this early; Metica drops the event on iOS)
-MeticaSdk.Analytics.LogCustomEvent(""loadingTime"", payload);";
+MeticaSdk.Analytics.LogCustomEvent(""loadTime"", payload);";
 
     [MenuItem("Tools/GD Performance Tracker/Performance Tracker Wizard")]
     static void Open()
@@ -358,7 +358,7 @@ MeticaSdk.Analytics.LogCustomEvent(""loadingTime"", payload);";
                         "Right now: FPS / memory tracking " + OnOff(_defTracking) +
                         ", sample interval " + _defInterval.ToString("0.#") + " s, startup-time reporting " +
                         OnOff(_defStartup) + ". While tracking is OFF nothing records and no perfStats or " +
-                        "loadingTime event is ever logged.",
+                        "loadTime event is ever logged.",
                         _body);
                     GUILayout.Space(8);
                     GUILayout.Label(
@@ -475,7 +475,7 @@ MeticaSdk.Analytics.LogCustomEvent(""loadingTime"", payload);";
             "abTestStartDate), then this game's own context fields, then send. Null = nothing recorded, skip.",
             SnippetLogPerf);
 
-        DrawSnippet(3, "Capture + log startup time — \"loadingTime\"",
+        DrawSnippet(3, "Capture + log startup time — \"loadTime\"",
             "MarkGameInteractive() fires where THIS game becomes genuinely playable. Unity-control time is " +
             "captured automatically — no prefab needed. Same pattern: payload from the utility, the five required " +
             "base fields, game context, send. GetStartupPayload() returns null when startup tracking is disabled " +

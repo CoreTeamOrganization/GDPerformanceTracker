@@ -103,7 +103,7 @@ public class GDPerfTracker : MonoBehaviour
     [Tooltip("Seconds per FPS sample bucket. 1 = one FPS value per second.")]
     [SerializeField, Range(1f, 30f)] float sampleIntervalSeconds = 1f;
 
-    [Tooltip("Startup-time reporting on/off. OFF by default; while off, GetStartupPayload() returns null so no loadingTime event is logged. Milestones are still captured in RAM either way.")]
+    [Tooltip("Startup-time reporting on/off. OFF by default; while off, GetStartupPayload() returns null so no loadTime event is logged. Milestones are still captured in RAM either way.")]
     [SerializeField] bool startupTrackingEnabled = false;
 
     const float MemorySampleEverySeconds = 5f;
