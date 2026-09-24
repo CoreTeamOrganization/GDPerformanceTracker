@@ -42,6 +42,7 @@ developer a `Dictionary<string, object>` and the developer's analytics code send
 | `package.json` | UPM manifest (`com.gamedistrict.performance-tracker`). |
 | `Scripts/GDPerformance.cs` | **The only class developers call** — 4-method static facade. Everything else is `internal`. |
 | `Scripts/GDPerfTracker.cs` | FPS/memory recorder implementation (MonoBehaviour, lives on the prefab). Never called directly. |
+| `Plugins/Android/GDStartupTime.androidlib` | Native background-time tracker (ContentProvider) used by GDStartupTime. |
 | `Scripts/GDStartupTime.cs` | Cold-start stopwatch implementation (static). Never called directly. Needs no prefab. |
 | `Prefabs/GDPerfTracker.prefab` | Drag-and-drop setup. Inspector holds the **initial values** (all tracking OFF, interval 1s). |
 | `Editor/PerformanceTrackerWizard.cs` | Setup wizard — `Tools → GD Performance Tracker → Performance Tracker Wizard`. Editor-only. |
@@ -137,6 +138,11 @@ the portfolio: **`perfStats`** and **`loadTime`** (via
    `#if UNITY_ANDROID && !UNITY_EDITOR`); Editor / pre-API-24 falls back to
    `Time.realtimeSinceStartup`, which measures from engine init — those readings
    are NOT comparable to real Android numbers. No iOS branch yet.
+   `uptimeMillis` keeps ticking while backgrounded, so the native
+   `GDStartupProvider` (`Plugins/Android/GDStartupTime.androidlib`, a
+   ContentProvider created before any Activity) totals time with no Activity
+   started, and both values subtract it — launching, hitting home and
+   returning later no longer inflates them.
    `GDPerfTracker` is fully cross-platform.
 
 9. **Setup wizard.** Two pages: (1) pick a scene (only scenes enabled in Build

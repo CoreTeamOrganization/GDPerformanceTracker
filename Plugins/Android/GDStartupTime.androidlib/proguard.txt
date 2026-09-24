@@ -1,0 +1,2 @@
+# Called from C# via JNI by name — keep it from being stripped/renamed.
+-keep class com.gamedistrict.perftracker.GDStartupProvider { public static long getBackgroundMillis(); }

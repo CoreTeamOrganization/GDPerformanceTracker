@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Created by Android before any Activity — the earliest hook an app gets,
+             so background time is tracked from the very first launch frame. -->
+        <provider
+            android:name="com.gamedistrict.perftracker.GDStartupProvider"
+            android:authorities="${applicationId}.gdstartupprovider"
+            android:exported="false" />
+    </application>
+</manifest>

@@ -1,0 +1,21 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace "com.gamedistrict.perftracker"
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 21
+        consumerProguardFiles 'proguard.txt'
+    }
+
+    // Root layout (not src/main) so Unity 2022.3 and Unity 6 both find the manifest.
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+        }
+    }
+
+    lint { abortOnError false }
+}

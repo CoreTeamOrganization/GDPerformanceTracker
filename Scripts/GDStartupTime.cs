@@ -33,6 +33,7 @@ internal static class GDStartupTime
     private static readonly AndroidJavaClass _clockClass   = new AndroidJavaClass("android.os.SystemClock");
     private static readonly bool _supportsGetStartUptime =
         new AndroidJavaClass("android.os.Build$VERSION").GetStatic<int>("SDK_INT") >= 24;
+    private static AndroidJavaClass _providerClass;   // lazy: a missing plugin must not break the static ctor
 #endif
 
     private static float _unityControlMs = NotCaptured;
@@ -83,7 +84,8 @@ internal static class GDStartupTime
     /// <summary>
     /// Milliseconds from OS process creation to right now. Android: uses
     /// android.os.Process.getStartUptimeMillis() paired with SystemClock.uptimeMillis()
-    /// (same clock base, both exclude deep sleep). Falls back to
+    /// (same clock base, both exclude deep sleep), minus time spent backgrounded
+    /// (uptimeMillis keeps ticking there). Falls back to
     /// Time.realtimeSinceStartup on editor / pre-API-24 devices — note this fallback
     /// measures from engine init, not process creation, so it is not directly
     /// comparable to real Android-branch readings.
@@ -97,11 +99,26 @@ internal static class GDStartupTime
             {
                 long start = _processClass.CallStatic<long>("getStartUptimeMillis");
                 long now   = _clockClass.CallStatic<long>("uptimeMillis");
-                return now - start;
+                return now - start - BackgroundMs();
             }
             catch { }
         }
 #endif
         return Time.realtimeSinceStartup * 1000f;
     }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    /// <summary>Time spent backgrounded since process start, tracked natively by
+    /// GDStartupProvider (Plugins/Android). 0 if the plugin is missing.</summary>
+    private static long BackgroundMs()
+    {
+        try
+        {
+            if (_providerClass == null)
+                _providerClass = new AndroidJavaClass("com.gamedistrict.perftracker.GDStartupProvider");
+            return _providerClass.CallStatic<long>("getBackgroundMillis");
+        }
+        catch { return 0; }
+    }
+#endif
 }
