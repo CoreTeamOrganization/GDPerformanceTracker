@@ -3,6 +3,9 @@ apply plugin: 'com.android.library'
 android {
     namespace "com.gamedistrict.perftracker"
     compileSdk 34
+    // Without this AGP defaults to its own build-tools (e.g. 35.0.0), which Unity's bundled
+    // SDK may not ship -> "licences have not been accepted". Reuse whatever unityLibrary resolved.
+    buildToolsVersion = parent.android.buildToolsVersion
 
     defaultConfig {
         minSdk 21
